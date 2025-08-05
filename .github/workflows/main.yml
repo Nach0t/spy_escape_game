@@ -1,12 +1,14 @@
-name: Run Pytest for Spy Game
+name: Run Pytest for Spy Escape Game
 
 on:
   push:
     paths:
       - '**.py'
+      - 'requirements.txt'
   pull_request:
     paths:
       - '**.py'
+      - 'requirements.txt'
 
 jobs:
   test:
@@ -21,7 +23,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install all dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
@@ -30,4 +32,4 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
         run: |
-          pytest tests/
+          pytest

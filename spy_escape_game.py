@@ -4,6 +4,7 @@ import pygame
 import sys
 import heapq
 import random
+import os
 
 # === CONFIGURACIÓN ===
 TILE_SIZE = 40
@@ -23,24 +24,47 @@ BLUE = (0, 0, 255)
 YELLOW = (255, 255, 0)
 LIGHT_YELLOW = (255, 255, 150)
 
+# === CARGAR SPRITES ===
+GUARD_SPRITE = pygame.transform.scale(
+    pygame.image.load(os.path.join("assets", "policeman.png")), (TILE_SIZE, TILE_SIZE)
+)
+PLAYER_SPRITE = pygame.transform.scale(
+    pygame.image.load(os.path.join("assets", "thief.png")), (TILE_SIZE, TILE_SIZE)
+)
+GOAL_SPRITE = pygame.transform.scale(
+    pygame.image.load(os.path.join("assets", "door.png")), (TILE_SIZE, TILE_SIZE)
+)
+
 # === GENERADOR DE MAPA CONECTADO ===
 def generate_connected_map():
     while True:
-        grid = [[1 if x == 0 or y == 0 or x == GRID_WIDTH - 1 or y == GRID_HEIGHT - 1 else random.choice([0, 1, 0]) for x in range(GRID_WIDTH)] for y in range(GRID_HEIGHT)]
+        grid = [
+            [
+                1
+                if x == 0
+                or y == 0
+                or x == GRID_WIDTH - 1
+                or y == GRID_HEIGHT - 1
+                else random.choice([0, 1, 0])
+                for x in range(GRID_WIDTH)
+            ]
+            for y in range(GRID_HEIGHT)
+        ]
 
         player_pos = (1, 1)
         goal_pos = (GRID_WIDTH - 2, GRID_HEIGHT - 2)
         guard_pos = (GRID_WIDTH // 2, GRID_HEIGHT // 2)
 
         grid[player_pos[1]][player_pos[0]] = 2  # Espía
-        grid[goal_pos[1]][goal_pos[0]] = 3      # Meta
-        grid[guard_pos[1]][guard_pos[0]] = 0    # Limpia para colocación de guardia
+        grid[goal_pos[1]][goal_pos[0]] = 3  # Meta
+        grid[guard_pos[1]][guard_pos[0]] = 0  # Limpia para colocación de guardia
 
         temp_pg = Playground(grid)
         path = temp_pg.a_star(player_pos, goal_pos)
         if path and temp_pg.is_valid(*guard_pos):
             grid[guard_pos[1]][guard_pos[0]] = 4  # Guardia
             return grid
+
 
 # === CLASE DEL ENTORNO ===
 class Playground:
@@ -60,10 +84,14 @@ class Playground:
         return None
 
     def is_valid(self, x, y):
-        return 0 <= x < GRID_WIDTH and 0 <= y < GRID_HEIGHT and self.grid[y][x] in [0, 3]
+        return (
+            0 <= x < GRID_WIDTH
+            and 0 <= y < GRID_HEIGHT
+            and self.grid[y][x] in [0, 3]
+        )
 
     def neighbors(self, x, y):
-        for dx, dy in [(-1,0),(1,0),(0,-1),(0,1)]:
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             nx, ny = x + dx, y + dy
             if self.is_valid(nx, ny):
                 yield (nx, ny)
@@ -85,7 +113,15 @@ class Playground:
                 return new_path[1:]
             for neighbor in self.neighbors(*current):
                 if neighbor not in visited:
-                    heapq.heappush(open_set, (cost + 1 + self.heuristic(neighbor, goal), cost + 1, neighbor, new_path))
+                    heapq.heappush(
+                        open_set,
+                        (
+                            cost + 1 + self.heuristic(neighbor, goal),
+                            cost + 1,
+                            neighbor,
+                            new_path,
+                        ),
+                    )
         return []
 
     def move_along_path(self):
@@ -98,7 +134,7 @@ class Playground:
 
     def move_guard_randomly(self):
         self.guard_timer += 1
-        if self.guard_timer < 5:
+        if self.guard_timer < 15:
             return
         self.guard_timer = 0
         gx, gy = self.guard_pos
@@ -115,12 +151,19 @@ class Playground:
     def is_caught(self):
         px, py = self.player_pos
         gx, gy = self.guard_pos
-        vision = [(gx + dx, gy + dy) for dx, dy in [(-1,0),(1,0),(0,-1),(0,1)]]
+        vision = [(gx + dx, gy + dy) for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]]
         return (px, py) in vision
 
     def get_guard_vision(self):
         gx, gy = self.guard_pos
-        return [(gx + dx, gy + dy) for dx, dy in [(-1,0),(1,0),(0,-1),(0,1)] if 0 <= gx + dx < GRID_WIDTH and 0 <= gy + dy < GRID_HEIGHT and self.grid[gy + dy][gx + dx] != 1]
+        return [
+            (gx + dx, gy + dy)
+            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]
+            if 0 <= gx + dx < GRID_WIDTH
+            and 0 <= gy + dy < GRID_HEIGHT
+            and self.grid[gy + dy][gx + dx] != 1
+        ]
+
 
 # === FUNCIONES AUXILIARES ===
 def draw_grid(screen, playground):
@@ -133,20 +176,20 @@ def draw_grid(screen, playground):
             tile = playground.grid[y][x]
 
             if tile == 1:
-                color = GRAY
+                pygame.draw.rect(screen, GRAY, rect)
             elif tile == 2:
-                color = BLUE
+                screen.blit(PLAYER_SPRITE, rect)
             elif tile == 3:
-                color = GREEN
+                screen.blit(GOAL_SPRITE, rect)
             elif tile == 4:
-                color = RED
+                screen.blit(GUARD_SPRITE, rect)
             elif (x, y) in vision:
-                color = LIGHT_YELLOW
+                pygame.draw.rect(screen, LIGHT_YELLOW, rect)
             else:
-                color = WHITE
+                pygame.draw.rect(screen, WHITE, rect)
 
-            pygame.draw.rect(screen, color, rect)
             pygame.draw.rect(screen, BLACK, rect, 1)
+
 
 # === MAIN LOOP ===
 def main():
@@ -170,7 +213,9 @@ def main():
                 grid_x = mouse_x // TILE_SIZE
                 grid_y = mouse_y // TILE_SIZE
                 if playground.is_valid(grid_x, grid_y):
-                    playground.path = playground.a_star(playground.player_pos, (grid_x, grid_y))
+                    playground.path = playground.a_star(
+                        playground.player_pos, (grid_x, grid_y)
+                    )
 
         playground.move_along_path()
         playground.move_guard_randomly()
@@ -187,6 +232,7 @@ def main():
 
     pygame.quit()
     sys.exit()
+
 
 if __name__ == "__main__":
     main()

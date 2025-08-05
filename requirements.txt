@@ -1,2 +1,4 @@
 pygame
 pytest
+ruff
+flake8
