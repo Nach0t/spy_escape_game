@@ -5,7 +5,7 @@ os.environ["SDL_VIDEODRIVER"] = "dummy"  # evita abrir ventana
 
 import pytest
 import pygame
-import spy_escape_game
+import game.spy_escape_game as spy_escape_game
 
 def test_game_import():
     assert True  # Si importar no lanza error, la prueba pasa
